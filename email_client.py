@@ -1,4 +1,3 @@
-# email_client.py
 import requests
 from msal import ConfidentialClientApplication
 from typing import Optional, List, Dict, Any, Tuple
