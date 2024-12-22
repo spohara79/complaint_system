@@ -1,12 +1,10 @@
-import logging
 import re
 from typing import Dict, List, Any
 from transformers import pipeline
 from .email_client import EmailClient
 from .utils import clean_email, load_keywords_from_file
 import config
-
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 try:
     classifier = pipeline("sentiment-analysis", model=config.SENTIMENT_MODEL)

@@ -2,12 +2,10 @@
 import requests
 from msal import ConfidentialClientApplication
 from typing import Optional, List, Dict, Any, Tuple
-import logging
 from urllib.parse import quote, urlencode
 import config
 from datetime import datetime
-
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 class EmailClient:
     """Client for interacting with Microsoft Graph API"""

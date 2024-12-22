@@ -1,4 +1,3 @@
-import logging
 import time
 import threading
 import queue
@@ -8,12 +7,12 @@ from email_client import EmailClient
 from complaint_processor import ComplaintProcessor
 from utils import parse_interval, load_delta_tokens, save_delta_tokens
 import config
-import os
+import sys
+from loguru import logger
 
-# Configure logging (ONLY in main.py)
-log_level = getattr(logging, config.LOG_LEVEL.upper(), logging.INFO)
-logging.basicConfig(level=log_level, format='%(asctime)s - %(levelname)s - %(module)s - %(message)s')
-logger = logging.getLogger(__name__)
+# Configure logging (optional, adjust levels and format as needed)
+logger.add("complaint_processor.log", rotation="10 MB", level="INFO")
+logger.add(sys.stdout, level="DEBUG", format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}")
 
 def check_for_fp_feedback(mailbox_address: str, access_token_queue: queue.Queue, email_client: EmailClient):
     while True:
