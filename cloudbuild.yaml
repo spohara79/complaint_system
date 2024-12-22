@@ -4,7 +4,7 @@ steps:
 images:
 - 'gcr.io/$PROJECT_ID/complaint-processor:$COMMIT_SHA'
 options:
-  logging: CLOUD_LOGGING_ONLY  # Corrected indentation
-    cloudLogging: CLOUD_LOGGING_ONLY  # Remove this line (duplicate)
-    gcsLogsBucket: 'gs://complaint-system-log-bucket' 
-  serviceAccount: 'complain-system-service@project1-173415.iam.gserviceaccount.com' # Replace with your service account
+  logging:
+    cloudLogging: 'CLOUD_LOGGING_ONLY' 
+    gcsLogsBucket: 'gs://complaint-system-log-bucket'
+  serviceAccount: 'complain-system-service@project1-173415.iam.gserviceaccount.com'
