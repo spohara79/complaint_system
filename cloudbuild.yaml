@@ -3,3 +3,7 @@ steps:
   args: ['build', '-t', 'gcr.io/$PROJECT_ID/complaint-processor:$COMMIT_SHA', '.']
 images:
 - 'gcr.io/$PROJECT_ID/complaint-processor:$COMMIT_SHA'
+options:
+  logging: CLOUD_LOGGING_ONLY # Optional, but recommended to avoid duplicate logs
+  serviceAccount: 'complain-system-service@project1-173415.iam.gserviceaccount.com' # Replace with your service account
+  logsBucket: 'gs://complaint-system-log-bucket' # Replace with your bucket name
