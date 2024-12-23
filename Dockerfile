@@ -29,8 +29,7 @@ COPY --from=builder /app/complaint_keywords.txt /app/
 COPY --from=builder /app/subject_keywords.txt /app/
 COPY --from=builder /app/urgency_keywords.txt /app/
 COPY --from=builder /app/negation_keywords.txt /app/
-COPY --from=builder /app/delta_tokens.json /app/
-
+RUN --from=builder touch /app/delta_tokens.json
 # Copy any other necessary files or directories
 # Example: COPY --from=builder /app/data /app/data
 

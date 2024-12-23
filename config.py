@@ -70,7 +70,6 @@ COMPLAINT_KEYWORDS_FILE = "complaint_keywords.txt"
 SUBJECT_KEYWORDS_FILE = "subject_keywords.txt"
 URGENCY_KEYWORDS_FILE = "urgency_keywords.txt"
 NEGATION_KEYWORDS_FILE = "negation_keywords.txt"
-DELTA_TOKEN_FILE = "delta_tokens.json"
 
 DISTRIBUTION_LIST_EMAIL = os.environ.get("DISTRIBUTION_LIST_EMAIL")
 MONITORED_MAILBOXES = os.environ.get("MONITORED_MAILBOXES").split(",")
