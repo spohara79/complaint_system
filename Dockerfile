@@ -5,7 +5,7 @@ WORKDIR /app
 
 COPY requirements.txt .
 
-# Install system dependencies (if any)
+# Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
@@ -29,14 +29,12 @@ COPY --from=builder /app/complaint_keywords.txt /app/
 COPY --from=builder /app/subject_keywords.txt /app/
 COPY --from=builder /app/urgency_keywords.txt /app/
 COPY --from=builder /app/negation_keywords.txt /app/
-RUN --from=builder touch /app/delta_tokens.json
-# Copy any other necessary files or directories
-# Example: COPY --from=builder /app/data /app/data
+RUN touch /app/delta_tokens.json
 
 # Copy the installed site-packages from the builder stage
 COPY --from=builder /usr/local/lib/python3.9/site-packages /usr/local/lib/python3.9/site-packages
 
-# Set environment variables (do this in the final stage)
+# Set environment variables
 ENV CLIENT_ID=your_client_id
 ENV AUTHORITY=your_authority
 ENV CLIENT_SECRET=your_client_secret
