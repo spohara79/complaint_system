@@ -4,5 +4,6 @@ steps:
 images:
 - 'gcr.io/$PROJECT_ID/complaint-processor:$COMMIT_SHA'
 options:
-  gcsLogsBucket: 'gs://complaint-system-log-bucket' # Replace with YOUR bucket name!
+  logging:
+    gcsLogsBucket: 'gs://complaint-system-log-bucket' # Replace with YOUR bucket name!
   serviceAccount: 'complain-system-service@project1-173415.iam.gserviceaccount.com' # Replace with YOUR service account
