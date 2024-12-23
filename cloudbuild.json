@@ -1,0 +1,20 @@
+{
+    "steps": [
+      {
+        "name": "gcr.io/cloud-builders/docker",
+        "args": [
+          "build",
+          "-t",
+          "gcr.io/$PROJECT_ID/complaint-processor:$COMMIT_SHA",
+          "."
+        ]
+      }
+    ],
+    "images": [
+      "gcr.io/$PROJECT_ID/complaint-processor:$COMMIT_SHA"
+    ],
+    "build": {
+      "logsBucket": "gs://complaint-system-log-bucket",
+      "serviceAccount": "complain-system-service@project1-173415.iam.gserviceaccount.com"
+    }
+  }
