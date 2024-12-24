@@ -72,7 +72,6 @@ class ComplaintProcessor:
         body_score = body_tfidf.max()
         subject_score = subject_tfidf.max()
 
-        # Combine scores (you can adjust the weighting here)
         combined_score = (
             body_score * self.config.weights.body_keyword
             + subject_score * self.config.weights.subject_keyword
