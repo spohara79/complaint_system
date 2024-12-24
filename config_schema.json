@@ -2,203 +2,222 @@
     "$schema": "http://json-schema.org/draft-07/schema#",
     "type": "object",
     "properties": {
-        "sentiment_model": {
-            "type": "string",
-            "default": "cardiffnlp/twitter-roberta-base-sentiment"
-        },
-        "monitored_mailboxes": {
-            "type": "array",
-            "items": {
-                "type": "string"
-            }
-        },
-        "fallback": {
-            "type": "boolean",
-            "default": false
-        },
-        "delete_original": {
-            "type": "boolean",
-            "default": true
-        },
-        "delta_token_path": {
-            "type": "string"
-        },
-        "keyword_threshold": {
-            "type": "number"
-        },
-        "sentiment_threshold": {
-            "type": "number"
-        },
-        "distribution_list_email": {
-            "type": "string"
-        },
-        "client_id": {
-            "type": "string"
-        },
-        "tenant_id": {
-            "type": "string"
-        },
-        "redirect_uri": {
-            "type": "string"
-        },
-        "authority": {
-            "type": "string"
-        },
-        "scopes": {
-            "type": "array",
-            "items": {
-                "type": "string"
-            }
-        },
-        "client_secret": {
-            "type": "string"
-        },
-        "exclusions": {
-            "type": "object",
-            "properties": {
-                "from": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
-                "subject": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                }
-            }
-        },
-        "complaint_keywords_file": {
-            "type": "string",
-            "default": "complaint_keywords.txt"
-        },
-        "subject_keywords_file": {
-            "type": "string",
-            "default": "subject_keywords.txt"
-        },
-        "urgency_keywords_file": {
-            "type": "string",
-            "default": "urgency_keywords.txt"
-        },
-        "negation_keywords_file": {
-            "type": "string",
-            "default": "negation_keywords.txt"
-        },
-        "weights": {
-            "type": "object",
-            "properties": {
-                "body_keyword": {
-                    "type": "number",
-                    "default": 0.5
-                },
-                "subject_keyword": {
-                    "type": "number",
-                    "default": 0.4
-                },
-                "urgency": {
-                    "type": "number",
-                    "default": 0.1
-                },
-                "negation": {
-                    "type": "number",
-                    "default": -0.5
-                }
-            },
-            "required": [
-                "body_keyword",
-                "subject_keyword",
-                "urgency",
-                "negation"
-            ]
-        },
-        "log_level": {
-            "type": "string"
-        },
-        "scheduling_intervals": {
-            "type": "object",
-            "properties": {
-                "fp_feedback_loop": {
-                    "type": "string"
-                },
-                "fn_feedback_loop": {
-                    "type": "string"
-                },
-                "main_loop": {
-                    "type": "string"
-                }
-            },
-            "required": [
-                "fp_feedback_loop",
-                "fn_feedback_loop",
-                "main_loop"
-            ]
-        },
-        "email_filter": {
-            "type": "object",
-            "properties": {
-                "from_domain": {
-                    "type": "string"
-                },
-                "start_date": {
-                    "type": "string"
-                },
-                "subject_contains": {
-                    "type": "string"
-                }
-            }
-        },
-        "max_retries": {
-            "type": "integer",
-            "default": 3
-        },
-        "retry_delay": {
-            "type": "integer",
-            "default": 5
-        },
-        "sentiment_pipeline_max_retries": {
-            "type": "integer",
-            "default": 3
-        },
-        "sentiment_pipeline_retry_delay": {
-            "type": "integer",
-            "default": 5
-        },
-        "top_emails": {
-            "type": "integer",
-            "default": 50
-        },
-        "config_file": {
-            "type": "string"
+      "sentiment_model": {
+        "type": "string",
+        "default": "cardiffnlp/twitter-roberta-base-sentiment"
+      },
+      "monitored_mailboxes": {
+        "type": "array",
+        "items": {
+          "type": "string"
         }
+      },
+      "fallback": {
+        "type": "boolean",
+        "default": false
+      },
+      "delete_original": {
+        "type": "boolean",
+        "default": true
+      },
+      "delta_token_path": {
+        "type": "string"
+      },
+      "keyword_threshold": {
+        "type": "number"
+      },
+      "sentiment_threshold": {
+        "type": "number"
+      },
+      "distribution_list_email": {
+        "type": "string"
+      },
+      "client_id": {
+        "type": "string"
+      },
+      "tenant_id": {
+        "type": "string"
+      },
+      "redirect_uri": {
+        "type": "string"
+      },
+      "authority": {
+        "type": "string"
+      },
+      "scopes": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      },
+      "client_secret": {
+        "type": "string"
+      },
+      "exclusions": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "subject": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "complaint_keywords_file": {
+        "type": "string",
+        "default": "complaint_keywords.txt"
+      },
+      "subject_keywords_file": {
+        "type": "string",
+        "default": "subject_keywords.txt"
+      },
+      "urgency_keywords_file": {
+        "type": "string",
+        "default": "urgency_keywords.txt"
+      },
+      "negation_keywords_file": {
+        "type": "string",
+        "default": "negation_keywords.txt"
+      },
+      "weights": {
+        "type": "object",
+        "properties": {
+          "body_keyword": {
+            "type": "number"
+          },
+          "subject_keyword": {
+            "type": "number"
+          },
+          "urgency": {
+            "type": "number"
+          },
+          "negation": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "body_keyword",
+          "subject_keyword",
+          "urgency",
+          "negation"
+        ]
+      },
+      "log_level": {
+        "type": "string"
+      },
+      "scheduling_intervals": {
+        "type": "object",
+        "properties": {
+          "fp_feedback_loop": {
+            "type": "string"
+          },
+          "fn_feedback_loop": {
+            "type": "string"
+          },
+          "main_loop": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "fp_feedback_loop",
+          "fn_feedback_loop",
+          "main_loop"
+        ]
+      },
+      "email_filter": {
+        "type": "object",
+        "properties": {
+          "from_domain": {
+            "type": "string"
+          },
+          "start_date": {
+            "type": "string"
+          },
+          "subject_contains": {
+            "type": "string"
+          }
+        }
+      },
+      "max_retries": {
+        "type": "integer",
+        "default": 3
+      },
+      "retry_delay": {
+        "type": "integer",
+        "default": 5
+      },
+      "sentiment_pipeline_max_retries": {
+        "type": "integer",
+        "default": 3
+      },
+      "sentiment_pipeline_retry_delay": {
+        "type": "integer",
+        "default": 5
+      },
+      "top_emails": {
+        "type": "integer",
+        "default": 50
+      },
+      "config_file": {
+        "type": "string"
+      },
+      "contextual_check": {
+        "type": "object",
+        "properties": {
+          "negation_proximity": {
+            "type": "integer"
+          },
+          "negative_proximity": {
+            "type": "integer"
+          },
+          "negative_words": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "negation_proximity",
+          "negative_proximity",
+          "negative_words"
+        ]
+      }
     },
     "required": [
-        "monitored_mailboxes",
-        "delta_token_path",
-        "keyword_threshold",
-        "sentiment_threshold",
-        "distribution_list_email",
-        "client_id",
-        "tenant_id",
-        "redirect_uri",
-        "authority",
-        "scopes",
-        "client_secret",
-        "exclusions",
-        "complaint_keywords_file",
-        "subject_keywords_file",
-        "urgency_keywords_file",
-        "negation_keywords_file",
-        "weights",
-        "log_level",
-        "scheduling_intervals",
-        "email_filter",
-        "max_retries",
-        "retry_delay",
-        "sentiment_pipeline_max_retries",
-        "sentiment_pipeline_retry_delay",
-        "top_emails",
-        "config_file"
+      "monitored_mailboxes",
+      "delta_token_path",
+      "keyword_threshold",
+      "sentiment_threshold",
+      "distribution_list_email",
+      "client_id",
+      "tenant_id",
+      "redirect_uri",
+      "authority",
+      "scopes",
+      "client_secret",
+      "exclusions",
+      "complaint_keywords_file",
+      "subject_keywords_file",
+      "urgency_keywords_file",
+      "negation_keywords_file",
+      "weights",
+      "log_level",
+      "scheduling_intervals",
+      "email_filter",
+      "max_retries",
+      "retry_delay",
+      "sentiment_pipeline_max_retries",
+      "sentiment_pipeline_retry_delay",
+      "top_emails",
+      "config_file",
+      "contextual_check"
     ]
-}
+  }

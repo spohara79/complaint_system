@@ -23,20 +23,20 @@ class ComplaintProcessor:
 
     def reload_sentiment_pipeline(self):
         """Attempts to initialize sentiment analysis pipeline with retries"""
-        max_retries = self.config.get("sentiment_pipeline_max_retries", 3)
-        retry_delay = self.config.get("sentiment_pipeline_retry_delay", 5)
+        max_retries = self.config.sentiment_pipeline_max_retries
+        retry_delay = self.config.sentiment_pipeline_retry_delay
         for attempt in range(max_retries):
             try:
                 self.classifier = pipeline("sentiment-analysis", model=self.config.sentiment_model)
                 logger.info(f"Initialized sentiment analysis pipeline with model: {self.config.sentiment_model}")
-                return 
+                return  # Success, exit the function
             except OSError as e:
                 if attempt < max_retries - 1:
                     logger.warning(f"Error connecting to the sentiment analysis pipeline (attempt {attempt + 1}/{max_retries}): {e}. Retrying in {retry_delay} seconds...")
                     time.sleep(retry_delay)
                 else:
                     logger.error(f"Failed to initialize sentiment analysis pipeline after {max_retries} attempts: {e}")
-                    raise
+                    raise  # Re-raise the exception after all retries
             except Exception as e:
                 logger.exception(f"Unexpected error during sentiment analysis pipeline initialization: {e}")
                 raise
@@ -72,6 +72,7 @@ class ComplaintProcessor:
         body_score = body_tfidf.max()
         subject_score = subject_tfidf.max()
 
+        # Combine scores (you can adjust the weighting here)
         combined_score = (
             body_score * self.config.weights.body_keyword
             + subject_score * self.config.weights.subject_keyword
@@ -99,12 +100,16 @@ class ComplaintProcessor:
                 if sentiment_label == "NEGATIVE":
                     for keyword in self.complaint_keywords:
                         if re.search(r"\b" + re.escape(keyword) + r"\b", cleaned_body, re.IGNORECASE):
-                            # Check for proximity (e.g., within 5 words)
+                            # Check for proximity
                             keyword_index = cleaned_body.lower().find(keyword.lower())
-                            if any(-5 < cleaned_body.lower().find(neg_word.lower()) - keyword_index < 5 for neg_word in self.negation_keywords):
+                            negation_proximity = self.config.contextual_check.negation_proximity
+                            negative_proximity = self.config.contextual_check.negative_proximity
+                            negative_words = self.config.contextual_check.negative_words
+
+                            if any(-negation_proximity < cleaned_body.lower().find(neg_word.lower()) - keyword_index < negation_proximity for neg_word in self.negation_keywords):
                                 contextual_complaint = False
                                 break  # Found negation, don't consider it a complaint
-                            elif any(-10 < cleaned_body.lower().find(neg_word.lower()) - keyword_index < 10 for neg_word in ["not", "no", "never", "without", "lack"]):
+                            elif any(-negative_proximity < cleaned_body.lower().find(neg_word.lower()) - keyword_index < negative_proximity for neg_word in negative_words):
                                 contextual_complaint = True
                                 break  # Found negative word nearby, consider it a contextual complaint
 
