@@ -1,0 +1,61 @@
+{
+    "sentiment_model": "cardiffnlp/twitter-roberta-base-sentiment",
+    "monitored_mailboxes": [
+        "mailbox1@yourdomain.com",
+        "mailbox2@yourdomain.com"
+    ],
+    "fallback": true,
+    "delete_original": true,
+    "delta_token_path": "delta_tokens.json",
+    "keyword_threshold": 0.2,
+    "sentiment_threshold": 0.6,
+    "distribution_list_email": "complaints_team@yourdomain.com",
+    "client_id": "YOUR_APPLICATION_CLIENT_ID",
+    "tenant_id": "YOUR_TENANT_ID",
+    "redirect_uri": "http://localhost",
+    "authority": "https://login.microsoftonline.com/YOUR_TENANT_ID",
+    "scopes": [
+        "https://graph.microsoft.com/Mail.ReadWrite",
+        "https://graph.microsoft.com/Mail.Send",
+        "https://graph.microsoft.com/User.Read",
+        "offline_access"
+    ],
+    "client_secret": "YOUR_APPLICATION_CLIENT_SECRET",
+    "exclusions": {
+        "from": [
+            "no-reply@yourdomain.com",
+            ".*@example\\.com"
+        ],
+        "subject": [
+            "Out of Office",
+            "Automatic Reply"
+        ]
+    },
+    "complaint_keywords_file": "complaint_keywords.txt",
+    "subject_keywords_file": "subject_keywords.txt",
+    "urgency_keywords_file": "urgency_keywords.txt",
+    "negation_keywords_file": "negation_keywords.txt",
+    "weights": {
+        "body_keyword": 0.7,
+        "subject_keyword": 0.3,
+        "urgency": 0.0,
+        "negation": -0.5
+    },
+    "log_level": "INFO",
+    "scheduling_intervals": {
+        "fp_feedback_loop": "5m",
+        "fn_feedback_loop": "5m",
+        "main_loop": "5m"
+    },
+    "email_filter": {
+        "from_domain": null,
+        "start_date": "2023-01-01T00:00:00Z",
+        "subject_contains": null
+    },
+    "max_retries": 3,
+    "retry_delay": 5,
+    "sentiment_pipeline_max_retries": 3,
+    "sentiment_pipeline_retry_delay": 5,
+    "top_emails": 50,
+    "config_file": "config.json"
+}

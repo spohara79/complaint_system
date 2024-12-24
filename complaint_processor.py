@@ -1,113 +1,146 @@
 import re
-from typing import Dict, List, Any
+from typing import Dict, Any, List
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.exceptions import NotFittedError
 from transformers import pipeline
 from .email_client import EmailClient
 from .utils import clean_email, load_keywords_from_file
-import config
+from .config_loader import Config
 from loguru import logger
-
-try:
-    classifier = pipeline("sentiment-analysis", model=config.SENTIMENT_MODEL)
-except Exception as e:
-    logger.error(f"Failed to initialize sentiment analysis pipeline: {e}")
-    exit(1)
+import time
 
 class ComplaintProcessor:
-    def __init__(self, email_client: EmailClient):
+    def __init__(self, email_client: EmailClient, config: Config):
         self.email_client = email_client
-        self.complaint_keywords = load_keywords_from_file(config.COMPLAINT_KEYWORDS_FILE)
-        self.subject_keywords = load_keywords_from_file(config.SUBJECT_KEYWORDS_FILE)
-        self.urgency_keywords = load_keywords_from_file(config.URGENCY_KEYWORDS_FILE)
-        self.negation_keywords = load_keywords_from_file(config.NEGATION_KEYWORDS_FILE)
+        self.config = config
+        self.classifier = None
+        self.vectorizer = TfidfVectorizer(
+            vocabulary=load_keywords_from_file(self.config.complaint_keywords_file),
+            stop_words='english'
+        )
+        self.reload_keywords()
+        self.reload_sentiment_pipeline()
 
-    def keyword_match(self, cleaned_body: str, cleaned_subject: str) -> bool:
-        """Determines if an email is a complaint based on keyword matching"""
-        score = 0
-        negation_weight = config.WEIGHTS.get("negation", -0.5)
-
-        # Keyword and Negation Handling (Body)
-        for keyword in self.complaint_keywords:
-            if re.search(r'\b' + re.escape(keyword) + r'\b', cleaned_body):
-                if any(re.search(r'\b' + re.escape(negation) + r'\b\s+(?:very\s+)?' + re.escape(keyword), cleaned_body) for negation in self.negation_keywords):
-                    score += negation_weight
+    def reload_sentiment_pipeline(self):
+        """Attempts to initialize sentiment analysis pipeline with retries."""
+        max_retries = self.config.get("sentiment_pipeline_max_retries", 3)
+        retry_delay = self.config.get("sentiment_pipeline_retry_delay", 5)
+        for attempt in range(max_retries):
+            try:
+                self.classifier = pipeline("sentiment-analysis", model=self.config.sentiment_model)
+                logger.info(f"Initialized sentiment analysis pipeline with model: {self.config.sentiment_model}")
+                return  # Success, exit the function
+            except OSError as e:
+                if attempt < max_retries - 1:
+                    logger.warning(f"Error connecting to the sentiment analysis pipeline (attempt {attempt + 1}/{max_retries}): {e}. Retrying in {retry_delay} seconds...")
+                    time.sleep(retry_delay)
                 else:
-                    score += config.WEIGHTS["body_keyword"]
-                break
+                    logger.error(f"Failed to initialize sentiment analysis pipeline after {max_retries} attempts: {e}")
+                    raise  # Re-raise the exception after all retries
+            except Exception as e:
+                logger.exception(f"Unexpected error during sentiment analysis pipeline initialization: {e}")
+                raise
 
-        # Simple Keyword Handling (Subject)
-        for keyword in self.subject_keywords:
-            if re.search(r'\b' + re.escape(keyword) + r'\b', cleaned_subject):
-                score += config.WEIGHTS["subject_keyword"]
-                break
+    def reload_keywords(self):
+        """Loads keywords from files, sorting by length"""
+        self.complaint_keywords = sorted(load_keywords_from_file(self.config.complaint_keywords_file), key=len, reverse=True)
+        self.subject_keywords = sorted(load_keywords_from_file(self.config.subject_keywords_file), key=len, reverse=True)
+        self.urgency_keywords = sorted(load_keywords_from_file(self.config.urgency_keywords_file), key=len, reverse=True)
+        self.negation_keywords = sorted(load_keywords_from_file(self.config.negation_keywords_file), key=len, reverse=True)
+        # Update the vocabulary of the vectorizer
+        self.vectorizer.vocabulary_ = self.complaint_keywords
 
-        # Simple Urgency Heuristics (Body and Subject)
-        for indicator in self.urgency_keywords:
-            if re.search(r'\b' + re.escape(indicator) + r'\b', cleaned_body) or re.search(r'\b' + re.escape(indicator) + r'\b', cleaned_subject):
-                score += config.WEIGHTS["urgency"]
-                break
+    def keyword_match_tfidf(self, cleaned_body: str, cleaned_subject: str) -> bool:
+        """Determines if an email is a complaint based on TF-IDF keyword matching"""
+        try:
+            # Check if vectorizer has vocabulary
+            if not self.vectorizer.vocabulary_:
+                logger.warning("Vectorizer has no vocabulary. Reloading keywords.")
+                self.reload_keywords()
 
-        return score >= config.COMPLAINT_THRESHOLD
+            body_tfidf = self.vectorizer.transform([cleaned_body])
+            subject_tfidf = self.vectorizer.transform([cleaned_subject])
+        except NotFittedError:
+            logger.warning("Vectorizer not fitted. Fitting with complaint keywords.")
+            self.vectorizer.fit(load_keywords_from_file(self.config.complaint_keywords_file))
+            body_tfidf = self.vectorizer.transform([cleaned_body])
+            subject_tfidf = self.vectorizer.transform([cleaned_subject])
+        except ValueError:
+            logger.error("Vectorizer error: empty vocabulary. Check complaint_keywords_file.")
+            return False
 
-    def is_complaint(self, email_body: str, email_subject: str, fallback=True) -> bool:
-        """
-        Checks if an email is a potential complaint based on keywords and sentiment
+        body_score = body_tfidf.max()
+        subject_score = subject_tfidf.max()
 
-        Args:
-            email_subject (str): Subject line of the email
-            email_body (str): Body content of the email
+        # Combine scores (you can adjust the weighting here)
+        combined_score = (
+            body_score * self.config.weights.get("body_keyword", 0.7)
+            + subject_score * self.config.weights.get("subject_keyword", 0.3)
+        )
 
-        Returns:
-            bool: True if the email is likely a complaint, False otherwise
-        """
+        return combined_score >= self.config.keyword_threshold
+
+    def is_complaint(self, email_body: str = None, email_subject: str = None) -> bool:
+        """Checks if an email is a potential complaint based on keywords and sentiment"""
+        if not email_body or not email_subject:
+            logger.warning("Missing email body or subject for complaint detection.")
+            return False
+
         cleaned_body = clean_email(email_body)
         cleaned_subject = clean_email(email_subject)
 
-        try:
-            sentiment_result = classifier(cleaned_body)[0]
-            sentiment_label: str = sentiment_result['label']
-            sentiment_score: float = sentiment_result['score']
-        except Exception as e:
-            logger.error(f"Error during sentiment analysis: {e}")
-            if fallback:
-                return self.keyword_match(cleaned_body, cleaned_subject)
-            return False
+        # Basic Contextual Check: Look for complaint keywords near negative sentiment words
+        contextual_complaint = False
+        if self.classifier:
+            try:
+                sentiment_result = self.classifier(cleaned_body)[0]
+                sentiment_label: str = sentiment_result['label']
+                sentiment_score: float = sentiment_result['score']
 
-        if sentiment_label == "NEGATIVE" and sentiment_score > config.COMPLAINT_THRESHOLD:
-            return True
+                if sentiment_label == "NEGATIVE":
+                    for keyword in self.complaint_keywords:
+                        if re.search(r"\b" + re.escape(keyword) + r"\b", cleaned_body, re.IGNORECASE):
+                            # Check for proximity (e.g., within 5 words)
+                            keyword_index = cleaned_body.lower().find(keyword.lower())
+                            if any(-5 < cleaned_body.lower().find(neg_word.lower()) - keyword_index < 5 for neg_word in self.negation_keywords):
+                                contextual_complaint = False
+                                break  # Found negation, don't consider it a complaint
+                            elif any(-10 < cleaned_body.lower().find(neg_word.lower()) - keyword_index < 10 for neg_word in ["not", "no", "never", "without", "lack"]):
+                                contextual_complaint = True
+                                break  # Found negative word nearby, consider it a contextual complaint
 
-        if fallback:
-            return self.keyword_match(cleaned_body, cleaned_subject)
+            except Exception as e:
+                logger.error(f"Error during sentiment analysis: {e}")
+                if self.config.fallback:
+                    return self.keyword_match_tfidf(cleaned_body, cleaned_subject)
+                return False
+
+            # Consider sentiment in the decision
+            if sentiment_label == "NEGATIVE" and sentiment_score >= self.config.sentiment_threshold:
+                return True
+
+        # Use TF-IDF if sentiment is not negative or if contextual_complaint is True
+        if self.config.fallback or contextual_complaint:
+            return self.keyword_match_tfidf(cleaned_body, cleaned_subject)
 
         return False
 
     def process_email(self, message: Dict[str, Any], access_token: str, user_id: str) -> None:
         """Processes an email message for Sentiment Analysis and Complaint Detection"""
         subject: str = message.get("subject", "No Subject")
-        receiver: str = message.get("toRecipients", [{}])[0].get("emailAddress", {}).get("address", "No Receiver")
         sender: str = message.get("from", {}).get("emailAddress", {}).get("address", "No Sender")
         body_content: str = message["body"]["content"]
         message_id = message.get('id')
 
-        # Add a custom header to the email for feedback learning
         header = f"X-Complaint-Processor: Processed-v1.0; ID={message_id};"
         message["body"]["content"] = header + message["body"]["content"]
 
-        for key, values in config.EXCLUSIONS.items():
-            if key == 'from':
-                for value in values:
-                    if re.match(value, sender):
-                        logger.info(f"Excluded sender: {sender}")
-                        return
-            elif key == 'subject':
-                for value in values:
-                    if re.match(value, subject):
-                        logger.info(f"Excluded subject: {subject}")
-                        return
-            elif key == 'toRecipients':
-                for value in values:
-                    if re.match(value, receiver):
-                        logger.info(f"Excluded recipient: {receiver}")
-                        return
+        if any(re.match(value, sender) for value in self.config.exclusions.get('from', [])):
+            logger.info(f"Excluded sender: {sender}")
+            return
+        if any(re.match(value, subject) for value in self.config.exclusions.get('subject', [])):
+            logger.info(f"Excluded subject: {subject}")
+            return
 
         if self.is_complaint(body_content, subject):
             logger.info(f"Complaint detected: Subject: {subject}, From: {sender}, Message ID: {message_id}")
