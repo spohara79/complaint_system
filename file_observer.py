@@ -4,7 +4,7 @@ import threading
 from loguru import logger
 from abc import ABC, abstractmethod
 
-class FileEventHandler(ABC):  # Abstract base class
+class FileEventHandler(ABC):
     @abstractmethod
     def on_modified(self, path):
         pass
@@ -19,7 +19,7 @@ class FileObserver:
 
     def start(self):
         if self._thread is None:
-            self._thread = threading.Thread(target=self._observe) # Removed daemon=True
+            self._thread = threading.Thread(target=self._observe)
             self._thread.start()
             logger.info(f"File observer started for: {self.file_path}")
         else:

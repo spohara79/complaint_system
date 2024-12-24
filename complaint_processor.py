@@ -22,21 +22,21 @@ class ComplaintProcessor:
         self.reload_sentiment_pipeline()
 
     def reload_sentiment_pipeline(self):
-        """Attempts to initialize sentiment analysis pipeline with retries."""
+        """Attempts to initialize sentiment analysis pipeline with retries"""
         max_retries = self.config.get("sentiment_pipeline_max_retries", 3)
         retry_delay = self.config.get("sentiment_pipeline_retry_delay", 5)
         for attempt in range(max_retries):
             try:
                 self.classifier = pipeline("sentiment-analysis", model=self.config.sentiment_model)
                 logger.info(f"Initialized sentiment analysis pipeline with model: {self.config.sentiment_model}")
-                return  # Success, exit the function
+                return 
             except OSError as e:
                 if attempt < max_retries - 1:
                     logger.warning(f"Error connecting to the sentiment analysis pipeline (attempt {attempt + 1}/{max_retries}): {e}. Retrying in {retry_delay} seconds...")
                     time.sleep(retry_delay)
                 else:
                     logger.error(f"Failed to initialize sentiment analysis pipeline after {max_retries} attempts: {e}")
-                    raise  # Re-raise the exception after all retries
+                    raise
             except Exception as e:
                 logger.exception(f"Unexpected error during sentiment analysis pipeline initialization: {e}")
                 raise

@@ -45,22 +45,7 @@ class EmailClient:
             logger.error(f"Failed to save token cache: {e}")
 
     def _make_graph_api_request(self, url, headers, method="GET", json_data=None) -> requests.Response:
-        """
-        Helper function to make Graph API requests with retries.
-
-        Args:
-            url (str): The URL for the API request.
-            headers (dict): The headers for the request.
-            method (str, optional): The HTTP method (GET, POST, DELETE). Defaults to "GET".
-            json_data (dict, optional): The JSON data for POST requests. Defaults to None.
-
-        Returns:
-            requests.Response: The response object.
-
-        Raises:
-            requests.exceptions.RequestException: If the request fails after all retries.
-            ValueError: If an invalid HTTP method is provided.
-        """
+        """Helper function to make Graph API requests with retries"""
         for attempt in range(self.max_retries):
             try:
                 if method == "GET":
@@ -71,7 +56,7 @@ class EmailClient:
                     response = requests.delete(url, headers=headers)
                 else:
                     raise ValueError(f"Invalid HTTP method: {method}")
-                response.raise_for_status()  # Raise HTTPError for bad responses (4xx or 5xx)
+                response.raise_for_status() 
                 return response
             except requests.exceptions.RequestException as e:
                 if attempt < self.max_retries - 1:
@@ -80,7 +65,7 @@ class EmailClient:
                     time.sleep(self.retry_delay)
                 else:
                     logger.error(f"Graph API request failed after {self.max_retries} attempts: {e}")
-                    raise  # Re-raise the exception after all retries
+                    raise
             except Exception as e:
                 logger.exception(f"Unexpected error making Graph API Request: {e}")
                 raise
@@ -126,21 +111,7 @@ class EmailClient:
 
     def get_emails(self, access_token: str, mailbox_address: str, delta_token: Optional[str] = None,
                    email_filter: Optional[Dict] = None) -> Tuple[List[dict], Optional[str]]:
-        """
-        Retrieves emails from a specified mailbox using delta queries with optional filtering.
-
-        Args:
-            access_token (str): The access token for the Graph API.
-            mailbox_address (str): The email address of the mailbox to retrieve emails from.
-            delta_token (Optional[str]): The delta token from a previous request. Defaults to None.
-            email_filter (Optional[Dict]): A dictionary of filter criteria. Defaults to None.
-                Supported keys: "from_domain", "start_date", "subject_contains".
-
-        Returns:
-            Tuple[List[dict], Optional[str]]: A tuple containing:
-                - A list of email dictionaries.
-                - The delta token for the next request (or None if there are no more changes).
-        """
+        """Retrieves emails from a specified mailbox using delta queries with optional filtering"""
         url = f"https://graph.microsoft.com/v1.0/users/{mailbox_address}/messages"
         query_params = {}
         headers = {"Authorization": f"Bearer {access_token}"}
@@ -192,14 +163,7 @@ class EmailClient:
         }
 
     def send_message_to_distribution_list(self, access_token: str, user_id: str, message_id: str):
-        """
-        Sends a copy of the specified message to the distribution list.
-
-        Args:
-            access_token (str): The access token.
-            user_id (str): The ID of the user whose mailbox the message is in.
-            message_id (str): The ID of the message to forward.
-        """
+        """Sends a copy of the specified message to the distribution list"""
         try:
             get_message_url = f"https://graph.microsoft.com/v1.0/users/{user_id}/messages/{message_id}"
             headers: Dict[str, str] = {

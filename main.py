@@ -16,18 +16,19 @@ import requests
 logger.add("complaint_processor.log", rotation="10 MB", level="INFO")
 logger.add(sys.stdout, level="DEBUG", format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}")
 
-config = Config("config.json", "config_schema.json")  # Create the config object
+config = Config("config.json", "config_schema.json")
 
-def check_for_fp_feedback(mailbox_address: str, access_token_queue: queue.Queue, email_client: EmailClient):
-    """Checks a mailbox for false positive feedback messages."""
-    processed_message_ids = set()  # Keep track of processed messages
-    last_checked = time.time() - parse_interval(config.scheduling_intervals.get("fp_feedback_loop", "5m"))
+def check_for_feedback(mailbox_address: str, access_token_queue: queue.Queue, email_client: EmailClient, feedback_type: str):
+    """Checks a mailbox for feedback messages (either false positives or false negatives)"""
+    processed_message_ids = set()
+    interval_key = f"{feedback_type}_feedback_loop"
+    last_checked = time.time() - parse_interval(config.scheduling_intervals.get(interval_key, "5m"))
 
     while True:
         access_token = access_token_queue.get()
         if access_token:
             try:
-                if time.time() - last_checked >= parse_interval(config.scheduling_intervals.get("fp_feedback_loop", "5m")):
+                if time.time() - last_checked >= parse_interval(config.scheduling_intervals.get(interval_key, "5m")):
                     graph_api_url = f"https://graph.microsoft.com/v1.0/users/{mailbox_address}/mailFolders/Inbox/messages"
                     headers = {
                         "Authorization": f"Bearer {access_token}",
@@ -35,51 +36,7 @@ def check_for_fp_feedback(mailbox_address: str, access_token_queue: queue.Queue,
                     }
                     # Filter for messages received since the last check
                     filter_query = f"receivedDateTime ge {datetime.fromtimestamp(last_checked).astimezone().isoformat()}"
-                    params = {"$filter": filter_query, "$top": 10}  # Get top 10 messages
-
-                    response = requests.get(graph_api_url, headers=headers, params=params)
-                    response.raise_for_status()
-                    retrieved_emails = response.json().get("value", [])
-
-                    for message in retrieved_emails:
-                        message_id = message.get("id")
-                        if message_id not in processed_message_ids:
-                            match = re.search(r"X-Complaint-Processor: Processed-v1.0; ID=(.*?);", message["body"]["content"])
-                            if match:
-                                email_id = match.group(1)
-                                logger.info(
-                                    f"False Positive detected for {mailbox_address}: Email ID: {email_id}, Subject: {message.get('subject')}, Original Message ID: {message_id}")
-                                processed_message_ids.add(message_id)
-                    last_checked = time.time()
-
-            except requests.exceptions.RequestException as e:
-                logger.exception(f"Error checking for false positives for {mailbox_address}: {e}")
-            except Exception as e:
-                logger.exception(f"A general error occurred in check_for_fp_feedback for {mailbox_address}: {e}")
-        else:
-            logger.error(f"Could not get access token for false positive check for {mailbox_address}.")
-
-        time.sleep(parse_interval(config.scheduling_intervals.get("fp_feedback_loop", "5m")))
-        access_token_queue.put(email_client.get_access_token())
-
-def check_for_fn_feedback(mailbox_address: str, access_token_queue: queue.Queue, email_client: EmailClient):
-    """Checks a mailbox for false negative feedback messages."""
-    processed_message_ids = set()  # Keep track of processed messages
-    last_checked = time.time() - parse_interval(config.scheduling_intervals.get("fn_feedback_loop", "5m"))
-
-    while True:
-        access_token = access_token_queue.get()
-        if access_token:
-            try:
-                if time.time() - last_checked >= parse_interval(config.scheduling_intervals.get("fn_feedback_loop", "5m")):
-                    graph_api_url = f"https://graph.microsoft.com/v1.0/users/{mailbox_address}/mailFolders/Inbox/messages"
-                    headers = {
-                        "Authorization": f"Bearer {access_token}",
-                        "Content-Type": "application/json"
-                    }
-                    # Filter for messages received since the last check
-                    filter_query = f"receivedDateTime ge {datetime.fromtimestamp(last_checked).astimezone().isoformat()}"
-                    params = {"$filter": filter_query, "$top": 10}  # Get top 10 messages
+                    params = {"$filter": filter_query, "$top": config.top_emails}
 
                     response = requests.get(graph_api_url, headers=headers, params=params)
                     response.raise_for_status()
@@ -88,26 +45,34 @@ def check_for_fn_feedback(mailbox_address: str, access_token_queue: queue.Queue,
                     for message in messages:
                         message_id = message.get("id")
                         if message_id not in processed_message_ids:
-                            if message.get("toRecipients") and any(
-                                    address.get("emailAddress", {}).get("address") == config.distribution_list_email for
-                                    address in message.get("toRecipients", [])):
-                                logger.info(
-                                    f"Potential False Negative Detected for {mailbox_address}: Subject: {message.get('subject')}, From: {message.get('from', {}).get('emailAddress', {}).get('address')}, Original Message ID: {message_id}")
-                                processed_message_ids.add(message_id)
+                            if feedback_type == "fp":
+                                match = re.search(r"X-Complaint-Processor: Processed-v1.0; ID=(.*?);", message["body"]["content"])
+                                if match:
+                                    email_id = match.group(1)
+                                    logger.info(
+                                        f"False Positive detected for {mailbox_address}: Email ID: {email_id}, Subject: {message.get('subject')}, Original Message ID: {message_id}")
+                                    processed_message_ids.add(message_id)
+                            elif feedback_type == "fn":
+                                if message.get("toRecipients") and any(
+                                        address.get("emailAddress", {}).get("address") == config.distribution_list_email for
+                                        address in message.get("toRecipients", [])):
+                                    logger.info(
+                                        f"Potential False Negative Detected for {mailbox_address}: Subject: {message.get('subject')}, From: {message.get('from', {}).get('emailAddress', {}).get('address')}, Original Message ID: {message_id}")
+                                    processed_message_ids.add(message_id)
                     last_checked = time.time()
 
             except requests.exceptions.RequestException as e:
-                logger.exception(f"Error checking for false negatives for {mailbox_address}: {e}")
+                logger.exception(f"Error checking for {feedback_type} feedback for {mailbox_address}: {e}")
             except Exception as e:
-                logger.exception(f"A general error occurred in check_for_fn_feedback for {mailbox_address}: {e}")
+                logger.exception(f"A general error occurred in check_for_{feedback_type}_feedback for {mailbox_address}: {e}")
         else:
-            logger.error(f"Could not get access token for false negative check for {mailbox_address}.")
+            logger.error(f"Could not get access token for {feedback_type} feedback check for {mailbox_address}.")
 
-        time.sleep(parse_interval(config.scheduling_intervals.get("fn_feedback_loop", "5m")))
+        time.sleep(parse_interval(config.scheduling_intervals.get(interval_key, "5m")))
         access_token_queue.put(email_client.get_access_token())  # Refresh the token
 
 def main_email_loop(mailbox_address: str, access_token_queue: queue.Queue, email_client: EmailClient, complaint_processor: ComplaintProcessor):
-    """Main loop to process emails for a specific mailbox."""
+    """Main loop to process emails for a specific mailbox"""
     delta_tokens = load_delta_tokens(config)
     current_delta_token = delta_tokens.get(mailbox_address)
 
@@ -123,7 +88,7 @@ def main_email_loop(mailbox_address: str, access_token_queue: queue.Queue, email
                 if new_delta_token:
                     delta_tokens[mailbox_address] = new_delta_token
                     try:
-                        save_delta_tokens(config, delta_tokens) # Added try-except block
+                        save_delta_tokens(config, delta_tokens)
                     except Exception as e:
                         logger.exception(f"Error saving delta tokens: {e}")
                     current_delta_token = new_delta_token
@@ -131,7 +96,7 @@ def main_email_loop(mailbox_address: str, access_token_queue: queue.Queue, email
             except requests.exceptions.RequestException as e:
                 logger.error(f"Error retrieving emails for {mailbox_address}: {e}")
                 if e.response is not None:
-                    logger.error(f"Response content: {e.response.text}") # Log the error response for debugging
+                    logger.error(f"Response content: {e.response.text}")
             except Exception as e:
                 logger.exception(f"A general error occurred in main email loop for {mailbox_address}: {e}")
         else:
@@ -141,9 +106,9 @@ def main_email_loop(mailbox_address: str, access_token_queue: queue.Queue, email
         access_token_queue.put(email_client.get_access_token()) # refresh the token
 
 def main():
-    observer = start_config_watcher(config) #Start the watcher, passing the config object
-    email_client = EmailClient(config) # Pass the config object to EmailClient
-    complaint_processor = ComplaintProcessor(email_client, config) #Pass the config object to ComplaintProcessor
+    observer = start_config_watcher(config)
+    email_client = EmailClient(config)
+    complaint_processor = ComplaintProcessor(email_client, config)
 
     access_token = email_client.get_access_token()
     if not access_token:
@@ -153,13 +118,13 @@ def main():
     access_token_queue = queue.Queue()
     access_token_queue.put(access_token)
     num_threads = len(config.monitored_mailboxes) * 3
+
     with ThreadPoolExecutor(max_workers=num_threads) as executor:
         futures = []
         for mailbox in config.monitored_mailboxes:
             futures.append(executor.submit(main_email_loop, mailbox, access_token_queue, email_client, complaint_processor))
-            futures.append(executor.submit(check_for_fp_feedback, mailbox, access_token_queue, email_client))
-            futures.append(executor.submit(check_for_fn_feedback, mailbox, access_token_queue, email_client))
-
+            futures.append(executor.submit(check_for_feedback, mailbox, access_token_queue, email_client, "fp"))
+            futures.append(executor.submit(check_for_feedback, mailbox, access_token_queue, email_client, "fn"))
         try:
             # Monitor the futures for exceptions
             for future in futures:
@@ -169,11 +134,11 @@ def main():
                     logger.error(f"Thread raised an exception: {e}")
         except KeyboardInterrupt:
             logger.info("Shutting down...")
-            # No need to manually stop threads when using ThreadPoolExecutor
+
         finally:
             executor.shutdown(wait=True)
             stop_config_watcher(observer)
-            email_client._save_cache()  # Save the token cache
+            email_client._save_cache()
             logger.info("Exiting main process.")
 
 
