@@ -1,5 +1,5 @@
 from loguru import logger
-from config_loader import Config
+from .config_loader import Config
 import re, json, os
 from typing import List, Dict
 
