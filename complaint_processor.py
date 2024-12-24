@@ -74,8 +74,8 @@ class ComplaintProcessor:
 
         # Combine scores (you can adjust the weighting here)
         combined_score = (
-            body_score * self.config.weights.get("body_keyword", 0.7)
-            + subject_score * self.config.weights.get("subject_keyword", 0.3)
+            body_score * self.config.weights.body_keyword
+            + subject_score * self.config.weights.subject_keyword
         )
 
         return combined_score >= self.config.keyword_threshold

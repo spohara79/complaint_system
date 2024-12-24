@@ -29,6 +29,7 @@ class Config:
             return False
 
     def _load_schema(self):
+        """Loads the JSON schema from the schema file"""
         try:
             with open(self.schema_file, "r") as f:
                 return json.load(f)
@@ -56,7 +57,9 @@ class Config:
             validate(instance=config_data, schema=schema)
             self._config_data = config_data
             self._last_config_load_time = os.path.getmtime(self.config_file)
-            logger.info(f"Configuration loaded from {self.config_file} and validated successfully.")
+            logger.info(
+                f"Configuration loaded from {self.config_file} and validated successfully."
+            )
 
         except FileNotFoundError:
             logger.error(f"Configuration file '{self.config_file}' not found.")
@@ -71,8 +74,27 @@ class Config:
 
     def __getattr__(self, name):
         if name in self._config_data:
-            return self._config_data[name]
+            value = self._config_data[name]
+            if isinstance(value, dict):
+                return ConfigWrapper(value)
+            else:
+                return value
         raise AttributeError(f"Config key '{name}' not found.")
 
     def __contains__(self, item):
         return item in self._config_data
+
+class ConfigWrapper:
+    def __init__(self, config_data):
+        self._config_data = config_data
+
+    def __getattr__(self, name):
+        if name in self._config_data:
+            return self._config_data[name]
+        raise AttributeError(f"'weights' Config key '{name}' not found.")
+
+    def __contains__(self, item):
+        return item in self._config_data
+
+    def get(self, key, default=None):
+        return self._config_data.get(key, default)

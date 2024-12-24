@@ -90,16 +90,20 @@
             "type": "object",
             "properties": {
                 "body_keyword": {
-                    "type": "number"
+                    "type": "number",
+                    "default": 0.5
                 },
                 "subject_keyword": {
-                    "type": "number"
+                    "type": "number",
+                    "default": 0.4
                 },
                 "urgency": {
-                    "type": "number"
+                    "type": "number",
+                    "default": 0.1
                 },
                 "negation": {
-                    "type": "number"
+                    "type": "number",
+                    "default": -0.5
                 }
             },
             "required": [
