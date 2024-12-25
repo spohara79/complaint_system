@@ -19,7 +19,7 @@ def load_keywords_from_file(filepath: str) -> List[str]:
         return []
 
 def load_delta_tokens(config: Config) -> Dict[str, str]:
-    """Loads delta tokens from configuredfile"""
+    """Loads delta tokens from file"""
     delta_token_path = config.delta_token_path
     try:
         if os.path.exists(delta_token_path):
