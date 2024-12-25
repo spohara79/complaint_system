@@ -25,12 +25,13 @@ class EmailClient:
         self.max_retries = self.config.max_retries
         self.retry_delay = self.config.retry_delay
         self._load_cache()
+        self.token_cache = self.config.delta_token_file
 
     def _load_cache(self):
         """Loads the token cache from file"""
         try:
-            if os.path.exists("token_cache.bin"):
-                with open("token_cache.bin", "r") as cache_file:
+            if os.path.exists(self.token_cache):
+                with open(self.token_cache, "r") as cache_file:
                     self.cache.deserialize(cache_file.read())
         except Exception as e:
             logger.error(f"Failed to load token cache: {e}")
@@ -39,7 +40,7 @@ class EmailClient:
         """Saves the token cache to file"""
         try:
             if self.cache.has_state_changed:
-                with open("token_cache.bin", "w") as cache_file:
+                with open(self.token_cache, "w") as cache_file:
                     cache_file.write(self.cache.serialize())
         except Exception as e:
             logger.error(f"Failed to save token cache: {e}")

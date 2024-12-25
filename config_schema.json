@@ -16,9 +16,9 @@
       "type": "boolean",
       "default": true
     },
-    "delta_token_path": {
+    "delta_token_file": {
       "type": "string",
-      "default": "delta_tokens.json"
+      "default": "token_cache.bin"
     },
     "sentiment_threshold": {
       "type": "number",
