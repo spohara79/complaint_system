@@ -17,7 +17,7 @@
     "client_secret": "YOUR_AZURE_APP_CLIENT_SECRET",
     "exclusions": {
       "from": [
-        "no-reply@yourdomain.com",
+        "no-reply@*",
         "automated-system@.*\\.example\\.com"
       ],
       "subject": [
