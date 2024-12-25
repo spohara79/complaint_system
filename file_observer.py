@@ -4,13 +4,13 @@ import threading
 from loguru import logger
 from abc import ABC, abstractmethod
 
-class FileEventHandler(ABC):
+class FileEventHandler(ABC):  # Abstract base class
     @abstractmethod
     def on_modified(self, path):
         pass
 
 class FileObserver:
-    def __init__(self, file_path, retry_delay, event_handler):
+    def __init__(self, file_path, retry_delay, event_handler: FileEventHandler):
         self.file_path = file_path
         self.retry_delay = retry_delay
         self.event_handler = event_handler
@@ -52,13 +52,15 @@ class FileObserver:
                     logger.debug(f"Initial file modification time recorded: {last_modified}")
                 elif current_modified > last_modified:
                     logger.info(f"Config file modified. Triggering event handler for: {self.file_path}")
-                    try:  # Handle errors in the event handler
+                    try:
                         self.event_handler.on_modified(self.file_path)
                     except Exception as e:
                         logger.exception(f"Error in event handler: {e}")
                     last_modified = current_modified
                 elif current_modified < last_modified:
-                    logger.debug(f"Config file modification time went backwards. Possible file replacement: {self.file_path}") # Changed to debug level
+                    logger.debug(
+                        f"Config file modification time went backwards. Possible file replacement: {self.file_path}"
+                    )
                     last_modified = current_modified
 
             except OSError as e:

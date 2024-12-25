@@ -1,25 +1,24 @@
 import re
-from typing import Dict, Any, List
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.exceptions import NotFittedError
-from transformers import pipeline
+from typing import Dict, Any, Tuple, List
+from sklearn.metrics.pairwise import cosine_similarity
+from transformers import pipeline, AutoTokenizer, AutoModel
 from .email_client import EmailClient
 from .utils import clean_email, load_keywords_from_file
 from .config_loader import Config
 from loguru import logger
 import time
+import json
+import torch
 
 class ComplaintProcessor:
     def __init__(self, email_client: EmailClient, config: Config):
         self.email_client = email_client
         self.config = config
-        self.classifier = None
-        self.vectorizer = TfidfVectorizer(
-            vocabulary=load_keywords_from_file(self.config.complaint_keywords_file),
-            stop_words='english'
-        )
-        self.reload_keywords()
+        self.sentiment_classifier = None
+        self.tokenizer = AutoTokenizer.from_pretrained(self.config.sentiment_model)
+        self.model = AutoModel.from_pretrained(self.config.sentiment_model)
         self.reload_sentiment_pipeline()
+        self.reload_keywords()
 
     def reload_sentiment_pipeline(self):
         """Attempts to initialize sentiment analysis pipeline with retries"""
@@ -27,7 +26,7 @@ class ComplaintProcessor:
         retry_delay = self.config.sentiment_pipeline_retry_delay
         for attempt in range(max_retries):
             try:
-                self.classifier = pipeline("sentiment-analysis", model=self.config.sentiment_model)
+                self.sentiment_classifier = pipeline("sentiment-analysis", model=self.config.sentiment_model)
                 logger.info(f"Initialized sentiment analysis pipeline with model: {self.config.sentiment_model}")
                 return  # Success, exit the function
             except OSError as e:
@@ -42,90 +41,123 @@ class ComplaintProcessor:
                 raise
 
     def reload_keywords(self):
-        """Loads keywords from files, sorting by length"""
-        self.complaint_keywords = sorted(load_keywords_from_file(self.config.complaint_keywords_file), key=len, reverse=True)
+        """
+        Loads keywords from files, sorting by length. 
+        Regenerates embeddings if keywords change
+        """
+        new_complaint_keywords = sorted(load_keywords_from_file(self.config.complaint_keywords_file), key=len, reverse=True)
+        if new_complaint_keywords != self.complaint_keywords:
+            self.complaint_keywords = new_complaint_keywords
+            self.keyword_embeddings = self.generate_keyword_embeddings()
+        
         self.subject_keywords = sorted(load_keywords_from_file(self.config.subject_keywords_file), key=len, reverse=True)
         self.urgency_keywords = sorted(load_keywords_from_file(self.config.urgency_keywords_file), key=len, reverse=True)
-        self.negation_keywords = sorted(load_keywords_from_file(self.config.negation_keywords_file), key=len, reverse=True)
-        # Update the vocabulary of the vectorizer
-        self.vectorizer.vocabulary_ = self.complaint_keywords
 
-    def keyword_match_tfidf(self, cleaned_body: str, cleaned_subject: str) -> bool:
-        """Determines if an email is a complaint based on TF-IDF keyword matching"""
+    def generate_keyword_embeddings(self):
+        """Generates embeddings for complaint keywords, caching them to a file."""
+        cache_file = "keyword_embeddings.json"
+        
+        # Check if keywords have changed or if cache file doesn't exist
+        if not os.path.exists(cache_file) or \
+           set(self.complaint_keywords) != set(self._load_cached_keywords(cache_file)):
+            
+            logger.info("Generating keyword embeddings...")
+            keyword_embeddings = {}
+            for keyword in self.complaint_keywords:
+                keyword_embeddings[keyword] = self.get_embedding(keyword)
+            
+            # Save embeddings to cache file
+            self._save_keyword_embeddings(keyword_embeddings, cache_file)
+            logger.info(f"Keyword embeddings saved to {cache_file}")
+        else:
+            # Load embeddings from cache file
+            keyword_embeddings = self._load_keyword_embeddings(cache_file)
+            logger.info(f"Keyword embeddings loaded from {cache_file}")
+
+        return keyword_embeddings
+
+    def _load_cached_keywords(self, cache_file: str) -> List[str]:
+        """Loads keywords from the cache file."""
         try:
-            # Check if vectorizer has vocabulary
-            if not self.vectorizer.vocabulary_:
-                logger.warning("Vectorizer has no vocabulary. Reloading keywords.")
-                self.reload_keywords()
+            with open(cache_file, "r") as f:
+                cached_data = json.load(f)
+            return list(cached_data.keys())
+        except:
+            return []
 
-            body_tfidf = self.vectorizer.transform([cleaned_body])
-            subject_tfidf = self.vectorizer.transform([cleaned_subject])
-        except NotFittedError:
-            logger.warning("Vectorizer not fitted. Fitting with complaint keywords.")
-            self.vectorizer.fit(load_keywords_from_file(self.config.complaint_keywords_file))
-            body_tfidf = self.vectorizer.transform([cleaned_body])
-            subject_tfidf = self.vectorizer.transform([cleaned_subject])
-        except ValueError:
-            logger.error("Vectorizer error: empty vocabulary. Check complaint_keywords_file.")
-            return False
+    def _save_keyword_embeddings(self, keyword_embeddings: Dict[str, Any], cache_file: str):
+        """Saves keyword embeddings to a JSON file."""
+        with open(cache_file, "w") as f:
+            json.dump(keyword_embeddings, f, indent=4)
 
-        body_score = body_tfidf.max()
-        subject_score = subject_tfidf.max()
+    def _load_keyword_embeddings(self, cache_file: str) -> Dict[str, Any]:
+        """Loads keyword embeddings from a JSON file."""
+        with open(cache_file, "r") as f:
+            return json.load(f)
 
-        # Combine scores (you can adjust the weighting here)
-        combined_score = (
-            body_score * self.config.weights.body_keyword
-            + subject_score * self.config.weights.subject_keyword
-        )
+    def get_embedding(self, text: str):
+        """Generates an embedding for a given text using the RoBERTa model."""
+        inputs = self.tokenizer(text, return_tensors="pt", padding=True, truncation=True, max_length=512)
+        with torch.no_grad():
+            outputs = self.model(**inputs)
+        # Use the average of the last hidden states as the embedding
+        embeddings = outputs.last_hidden_state.mean(dim=1).squeeze().numpy()
+        return embeddings
 
-        return combined_score >= self.config.keyword_threshold
+    def get_contextual_score(self, email_body: str) -> float:
+        """Calculates a contextual complaint score based on keyword embeddings and email body embedding."""
+        email_embedding = self.get_embedding(email_body)
+        total_score = 0
+
+        sentences = re.split(r'(?<!\w\.\w.)(?<![A-Z][a-z]\.)(?<=\.|\?)\s', email_body)
+
+        for keyword, keyword_embedding in self.keyword_embeddings.items():
+            keyword_present = False
+            for sentence in sentences:
+                if keyword.lower() in sentence.lower():
+                    sentence_embedding = self.get_embedding(sentence)
+                    similarity = cosine_similarity([keyword_embedding], [sentence_embedding])[0][0]
+                    total_score += similarity
+                    keyword_present = True
+
+            if keyword_present:
+                # Add similarity between keyword and overall email body
+                overall_similarity = cosine_similarity([keyword_embedding], [email_embedding])[0][0]
+                total_score += overall_similarity
+
+        return total_score
+
+    def get_sentiment(self, text: str) -> Tuple[float, str]:
+        """Gets the sentiment score and label for a given text."""
+        if self.sentiment_classifier:
+            try:
+                result = self.sentiment_classifier(text)[0]
+                return result['score'], result['label']
+            except Exception as e:
+                logger.error(f"Error during sentiment analysis: {e}")
+        return 0.0, "NEUTRAL"
 
     def is_complaint(self, email_body: str = None, email_subject: str = None) -> bool:
-        """Checks if an email is a potential complaint based on keywords and sentiment"""
+        """Checks if an email is a potential complaint based on sentiment and contextual analysis"""
         if not email_body or not email_subject:
             logger.warning("Missing email body or subject for complaint detection.")
             return False
 
         cleaned_body = clean_email(email_body)
-        cleaned_subject = clean_email(email_subject)
+        cleaned_subject = clean_email(email_subject)  # Consider if you need to use subject in this logic
 
-        # Basic Contextual Check: Look for complaint keywords near negative sentiment words
-        contextual_complaint = False
-        if self.classifier:
-            try:
-                sentiment_result = self.classifier(cleaned_body)[0]
-                sentiment_label: str = sentiment_result['label']
-                sentiment_score: float = sentiment_result['score']
+        sentiment_score, sentiment_label = self.get_sentiment(cleaned_body)
+        contextual_score = self.get_contextual_score(cleaned_body) if self.config.contextual_check.use_contextual_check else 0.0
 
-                if sentiment_label == "NEGATIVE":
-                    for keyword in self.complaint_keywords:
-                        if re.search(r"\b" + re.escape(keyword) + r"\b", cleaned_body, re.IGNORECASE):
-                            # Check for proximity
-                            keyword_index = cleaned_body.lower().find(keyword.lower())
-                            negation_proximity = self.config.contextual_check.negation_proximity
-                            negative_proximity = self.config.contextual_check.negative_proximity
-                            negative_words = self.config.contextual_check.negative_words
+        # Determine if complaint based on sentiment and contextual score
+        if (sentiment_label == "NEGATIVE" and sentiment_score >= self.config.sentiment_threshold) or \
+           (contextual_score >= self.config.contextual_check.contextual_score_threshold):
+            return True
 
-                            if any(-negation_proximity < cleaned_body.lower().find(neg_word.lower()) - keyword_index < negation_proximity for neg_word in self.negation_keywords):
-                                contextual_complaint = False
-                                break  # Found negation, don't consider it a complaint
-                            elif any(-negative_proximity < cleaned_body.lower().find(neg_word.lower()) - keyword_index < negative_proximity for neg_word in negative_words):
-                                contextual_complaint = True
-                                break  # Found negative word nearby, consider it a contextual complaint
-
-            except Exception as e:
-                logger.error(f"Error during sentiment analysis: {e}")
-                if self.config.fallback:
-                    return self.keyword_match_tfidf(cleaned_body, cleaned_subject)
-                return False
-
-            # Consider sentiment in the decision
-            if sentiment_label == "NEGATIVE" and sentiment_score >= self.config.sentiment_threshold:
+        # Fallback: Simple keyword check if enabled
+        if self.config.fallback:
+            if any(keyword.lower() in cleaned_body.lower() for keyword in self.complaint_keywords):
                 return True
-
-        # Use TF-IDF if sentiment is not negative or if contextual_complaint is True
-        if self.config.fallback or contextual_complaint:
-            return self.keyword_match_tfidf(cleaned_body, cleaned_subject)
 
         return False
 
@@ -151,5 +183,15 @@ class ComplaintProcessor:
             try:
                 self.email_client.send_message_to_distribution_list(access_token, user_id, message_id)
                 logger.info("Complaint forwarded to distribution list.")
+
+                if self.config.delete_original:
+                    try:
+                        delete_url = f"https://graph.microsoft.com/v1.0/users/{user_id}/messages/{message_id}"
+                        delete_headers = {"Authorization": f"Bearer {access_token}"}
+                        self.email_client._make_graph_api_request(delete_url, delete_headers, method="DELETE")
+                        logger.info(f"Original message {message_id} deleted.")
+                    except Exception as delete_error:
+                        logger.exception(f"Error deleting original message {message_id}: {delete_error}")
+
             except Exception as send_error:
                 logger.exception(f"Error forwarding complaint: {send_error}")

@@ -1,11 +1,4 @@
 {
-    "sentiment_model": "cardiffnlp/twitter-roberta-base-sentiment",
-    "monitored_mailboxes": [
-        "mailbox1@yourdomain.com",
-        "mailbox2@yourdomain.com"
-    ],
-    "fallback": true,
-    "delete_original": true,
     "delta_token_path": "delta_tokens.json",
     "keyword_threshold": 0.2,
     "sentiment_threshold": 0.6,
@@ -59,3 +52,61 @@
     "top_emails": 50,
     "config_file": "config.json"
 }
+
+{
+    "sentiment_model": "cardiffnlp/twitter-roberta-base-sentiment",
+    "monitored_mailboxes": [
+      "complaints1@yourdomain.com",
+      "support_inbox@yourdomain.com"
+    ],
+    "fallback": true,
+    "delete_original": false,
+    "delta_token_path": "delta_tokens.json",
+    "sentiment_threshold": 0.7,
+    "distribution_list_email": "complaints_handling_team@yourdomain.com",
+    "client_id": "YOUR_AZURE_APP_CLIENT_ID",
+    "tenant_id": "YOUR_AZURE_TENANT_ID",
+    "redirect_uri": "http://localhost",
+    "authority": "https://login.microsoftonline.com/YOUR_AZURE_TENANT_ID",
+    "scopes": [
+      "https://graph.microsoft.com/Mail.ReadWrite",
+      "https://graph.microsoft.com/Mail.Send",
+      "https://graph.microsoft.com/User.Read",
+      "offline_access"
+    ],
+    "client_secret": "YOUR_AZURE_APP_CLIENT_SECRET",
+    "exclusions": {
+      "from": [
+        "no-reply@yourdomain.com",
+        "automated-system@.*\\.example\\.com"
+      ],
+      "subject": [
+        "Out of Office",
+        "Vacation Notice",
+        "Delivery Status Notification"
+      ]
+    },
+    "complaint_keywords_file": "complaint_keywords.txt",
+    "subject_keywords_file": "subject_keywords.txt",
+    "urgency_keywords_file": "urgency_keywords.txt",
+    "log_level": "INFO",
+    "scheduling_intervals": {
+      "fp_feedback_loop": "4m",
+      "fn_feedback_loop": "4m",
+      "main_loop": "5m"
+    },
+    "email_filter": {
+      "from_domain": null,
+      "start_date": null,
+      "subject_contains": null
+    },
+    "max_retries": 3,
+    "retry_delay": 5,
+    "sentiment_pipeline_max_retries": 4,
+    "sentiment_pipeline_retry_delay": 3,
+    "top_emails": 25,
+    "contextual_check": {
+      "use_contextual_check": true,
+      "contextual_score_threshold": 0.4
+    }
+  }

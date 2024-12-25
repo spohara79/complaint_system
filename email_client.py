@@ -179,12 +179,13 @@ class EmailClient:
             self._make_graph_api_request(send_message_url, send_headers, method="POST", json_data=send_data)
 
             logger.info(f"Message {message_id} forwarded to distribution list.")
-
+            '''
             if self.config.delete_original:
                 delete_url = f"https://graph.microsoft.com/v1.0/users/{user_id}/messages/{message_id}"
                 delete_headers = {"Authorization": f"Bearer {access_token}"}
                 self._make_graph_api_request(delete_url, delete_headers, method="DELETE")
                 logger.info(f"Original message {message_id} deleted.")
+            '''
 
         except requests.exceptions.RequestException as e:
             logger.error(f"Error forwarding message: {e}")
