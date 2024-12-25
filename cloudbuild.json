@@ -1,22 +1,22 @@
 {
-    "steps": [
-      {
-        "name": "gcr.io/kaniko-project/executor:latest",
-        "args": [
-          "--cache=true",
-          "--cache-ttl=6h",
-          "--destination=gcr.io/$PROJECT_ID/complaint-processor:$COMMIT_SHA"
-        ]
-      },
-      {
-        "name": "docker:latest",
-        "args": [
-          "tag",
-          "gcr.io/project1-173415/complaint-processor:$COMMIT_SHA",
-          "kaniko-executor:<image_digest>"
-        ]
-      }
-    ],
-    "logsBucket": "gs://complaint-system-log-bucket",
-    "serviceAccount": "complain-system-service@project1-173415.iam.gserviceaccount.com"
+  "steps": [
+    {
+      "name": "gcr.io/kaniko-project/executor:latest",
+      "args": [
+        "--cache=true",
+        "--cache-ttl=6h",
+        "--destination=gcr.io/$PROJECT_ID/complaint-processor:$COMMIT_SHA"
+      ]
+    },
+    {
+      "name": "docker:latest",
+      "entrypoint": "bash",
+      "args": [
+        "-c",
+        "docker pull gcr.io/$PROJECT_ID/complaint-processor:$COMMIT_SHA && docker tag gcr.io/$PROJECT_ID/complaint-processor:$COMMIT_SHA gcr.io/project1-173415/complaint-processor:$COMMIT_SHA && docker push gcr.io/project1-173415/complaint-processor:$COMMIT_SHA"
+      ]
+    }
+  ],
+  "logsBucket": "gs://complaint-system-log-bucket",
+  "serviceAccount": "complain-system-service@project1-173415.iam.gserviceaccount.com"
 }
