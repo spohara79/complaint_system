@@ -21,54 +21,27 @@ logger.add(
     sys.stdout, level="DEBUG", format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}"
 )
 
-# Create config object globally
+
 config = Config("config.json", "config_schema.json")
-
-# Define a lock for accessing shared resources
 shared_resource_lock = threading.Lock()
+config_reload_event = threading.Event() # signal reload of config
 
-# Signal for config reload
-config_reload_event = threading.Event()
-
-def check_for_feedback(
-    mailbox_address: str,
-    access_token_queue: queue.Queue,
-    email_client: EmailClient,
-    feedback_type: str,
-):
-    """
-    Checks a mailbox for feedback messages (either false positives or false negatives).
-
-    Args:
-        mailbox_address (str): The mailbox to check.
-        access_token_queue (queue.Queue): The queue for access tokens.
-        email_client (EmailClient): The email client instance.
-        feedback_type (str): Either "fp" for false positives or "fn" for false negatives.
-    """
+def check_for_feedback(mailbox_address: str, access_token_queue: queue.Queue, email_client: EmailClient, feedback_type: str,):
     processed_message_ids = set()
     interval_key = f"{feedback_type}_feedback_loop"
-
     while True:
         access_token = access_token_queue.get()
         if access_token:
-            # Use a try block to handle potential exceptions
             try:
                 with shared_resource_lock:
-                  last_checked = time.time() - parse_interval(
-                      config.scheduling_intervals.get(interval_key, "5m")
-                  )
+                  last_checked = time.time() - parse_interval(config.scheduling_intervals.get(interval_key, "5m"))
 
                 if config_reload_event.is_set():
                     logger.info(f"Configuration reload detected in {feedback_type} thread for {mailbox_address}.")
                     config_reload_event.clear()
 
-                if (
-                    time.time() - last_checked
-                    >= parse_interval(config.scheduling_intervals.get(interval_key, "5m"))
-                ):
-                    graph_api_url = (
-                        f"https://graph.microsoft.com/v1.0/users/{mailbox_address}/mailFolders/Inbox/messages"
-                    )
+                if (time.time() - last_checked >= parse_interval(config.scheduling_intervals.get(interval_key, "5m"))):
+                    graph_api_url = (f"https://graph.microsoft.com/v1.0/users/{mailbox_address}/mailFolders/Inbox/messages")
                     headers = {
                         "Authorization": f"Bearer {access_token}",
                         "Content-Type": "application/json",
@@ -135,13 +108,8 @@ def check_for_feedback(
         access_token_queue.put(email_client.get_access_token())
 
 
-def main_email_loop(
-    mailbox_address: str,
-    access_token_queue: queue.Queue,
-    email_client: EmailClient,
-    complaint_processor: ComplaintProcessor,
-):
-    """Main loop to process emails for a specific mailbox."""
+def main_email_loop(mailbox_address: str, access_token_queue: queue.Queue, email_client: EmailClient, complaint_processor: ComplaintProcessor,):
+    """Main loop to process emails for a specific mailbox"""
     while True:
         access_token = access_token_queue.get()
         if access_token:

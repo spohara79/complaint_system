@@ -9,6 +9,7 @@ from loguru import logger
 import time
 import json
 import torch
+import os  
 
 class ComplaintProcessor:
     def __init__(self, email_client: EmailClient, config: Config):
@@ -49,17 +50,14 @@ class ComplaintProcessor:
         if new_complaint_keywords != self.complaint_keywords:
             self.complaint_keywords = new_complaint_keywords
             self.keyword_embeddings = self.generate_keyword_embeddings()
-        
-        self.subject_keywords = sorted(load_keywords_from_file(self.config.subject_keywords_file), key=len, reverse=True)
-        self.urgency_keywords = sorted(load_keywords_from_file(self.config.urgency_keywords_file), key=len, reverse=True)
+            logger.info("Complaint keywords reloaded.")
 
     def generate_keyword_embeddings(self):
-        """Generates embeddings for complaint keywords, caching them to a file."""
+        """Generates embeddings for complaint keywords, caching them to a file"""
         cache_file = "keyword_embeddings.json"
         
         # Check if keywords have changed or if cache file doesn't exist
-        if not os.path.exists(cache_file) or \
-           set(self.complaint_keywords) != set(self._load_cached_keywords(cache_file)):
+        if not os.path.exists(cache_file) or set(self.complaint_keywords) != set(self._load_cached_keywords(cache_file)):
             
             logger.info("Generating keyword embeddings...")
             keyword_embeddings = {}
@@ -77,7 +75,7 @@ class ComplaintProcessor:
         return keyword_embeddings
 
     def _load_cached_keywords(self, cache_file: str) -> List[str]:
-        """Loads keywords from the cache file."""
+        """Loads keywords from the cache file"""
         try:
             with open(cache_file, "r") as f:
                 cached_data = json.load(f)
@@ -86,17 +84,17 @@ class ComplaintProcessor:
             return []
 
     def _save_keyword_embeddings(self, keyword_embeddings: Dict[str, Any], cache_file: str):
-        """Saves keyword embeddings to a JSON file."""
+        """Saves keyword embeddings to a JSON file"""
         with open(cache_file, "w") as f:
             json.dump(keyword_embeddings, f, indent=4)
 
     def _load_keyword_embeddings(self, cache_file: str) -> Dict[str, Any]:
-        """Loads keyword embeddings from a JSON file."""
+        """Loads keyword embeddings from a JSON file"""
         with open(cache_file, "r") as f:
             return json.load(f)
 
     def get_embedding(self, text: str):
-        """Generates an embedding for a given text using the RoBERTa model."""
+        """Generates an embedding for a given text"""
         inputs = self.tokenizer(text, return_tensors="pt", padding=True, truncation=True, max_length=512)
         with torch.no_grad():
             outputs = self.model(**inputs)
@@ -105,7 +103,7 @@ class ComplaintProcessor:
         return embeddings
 
     def get_contextual_score(self, email_body: str) -> float:
-        """Calculates a contextual complaint score based on keyword embeddings and email body embedding."""
+        """Calculates a contextual complaint score based on keyword embeddings and email body embedding"""
         email_embedding = self.get_embedding(email_body)
         total_score = 0
 
@@ -128,7 +126,7 @@ class ComplaintProcessor:
         return total_score
 
     def get_sentiment(self, text: str) -> Tuple[float, str]:
-        """Gets the sentiment score and label for a given text."""
+        """Gets the sentiment score and label for a given text"""
         if self.sentiment_classifier:
             try:
                 result = self.sentiment_classifier(text)[0]

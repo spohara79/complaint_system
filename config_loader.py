@@ -1,5 +1,5 @@
 import re
-from typing import Dict, Any, Tuple, List  # Import Tuple
+from typing import Dict, Any, Tuple
 from sklearn.metrics.pairwise import cosine_similarity
 from transformers import pipeline, AutoTokenizer, AutoModel
 from .email_client import EmailClient
@@ -21,14 +21,14 @@ class ComplaintProcessor:
         self.reload_sentiment_pipeline()
 
     def reload_sentiment_pipeline(self):
-        """Attempts to initialize sentiment analysis pipeline with retries."""
+        """Attempts to initialize sentiment analysis pipeline with retries"""
         max_retries = self.config.sentiment_pipeline_max_retries
         retry_delay = self.config.sentiment_pipeline_retry_delay
         for attempt in range(max_retries):
             try:
                 self.sentiment_classifier = pipeline("sentiment-analysis", model=self.config.sentiment_model)
                 logger.info(f"Initialized sentiment analysis pipeline with model: {self.config.sentiment_model}")
-                return  # Success, exit the function
+                return
             except OSError as e:
                 if attempt < max_retries - 1:
                     logger.warning(f"Error connecting to the sentiment analysis pipeline (attempt {attempt + 1}/{max_retries}): {e}. Retrying in {retry_delay} seconds...")
@@ -49,14 +49,14 @@ class ComplaintProcessor:
         self.keyword_embeddings = self.generate_keyword_embeddings()
 
     def generate_keyword_embeddings(self):
-        """Generates embeddings for complaint keywords."""
+        """Generates embeddings for complaint keywords"""
         keyword_embeddings = {}
         for keyword in self.complaint_keywords:
             keyword_embeddings[keyword] = self.get_embedding(keyword)
         return keyword_embeddings
 
     def get_embedding(self, text: str):
-        """Generates an embedding for a given text using the RoBERTa model."""
+        """Generates an embedding for a given text"""
         inputs = self.tokenizer(text, return_tensors="pt", padding=True, truncation=True, max_length=512)
         with torch.no_grad():
             outputs = self.model(**inputs)
@@ -65,7 +65,7 @@ class ComplaintProcessor:
         return embeddings
 
     def get_contextual_score(self, email_body: str) -> float:
-        """Calculates a contextual complaint score based on keyword embeddings and email body embedding."""
+        """Calculates a contextual complaint score based on keyword embeddings and email body embedding"""
         email_embedding = self.get_embedding(email_body)
         total_score = 0
 
@@ -88,7 +88,7 @@ class ComplaintProcessor:
         return total_score
 
     def get_sentiment(self, text: str) -> Tuple[float, str]:
-        """Gets the sentiment score and label for a given text."""
+        """Gets the sentiment score and label for a given text"""
         if self.sentiment_classifier:
             try:
                 result = self.sentiment_classifier(text)[0]
@@ -104,20 +104,13 @@ class ComplaintProcessor:
             return False
 
         cleaned_body = clean_email(email_body)
-        cleaned_subject = clean_email(email_subject)  # Consider if you need to use subject in this logic
-
         sentiment_score, sentiment_label = self.get_sentiment(cleaned_body)
         contextual_score = self.get_contextual_score(cleaned_body) if self.config.contextual_check.use_contextual_check else 0.0
 
         # Determine if complaint based on sentiment and contextual score
-        if (sentiment_label == "NEGATIVE" and sentiment_score >= self.config.sentiment_threshold) or \
-           (contextual_score >= self.config.contextual_check.contextual_score_threshold):
+        if (sentiment_label == "NEGATIVE") and (sentiment_score >= self.config.sentiment_threshold or \
+           contextual_score >= self.config.contextual_check.contextual_score_threshold):
             return True
-
-        # Fallback: Simple keyword check if enabled
-        if self.config.fallback:
-            if any(keyword.lower() in cleaned_body.lower() for keyword in self.complaint_keywords):
-                return True
 
         return False
 

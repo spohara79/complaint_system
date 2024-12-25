@@ -71,7 +71,7 @@ class EmailClient:
                 raise
 
     def get_access_token(self) -> Optional[str]:
-        """Acquires an access token for the Microsoft Graph API, leveraging the token cache."""
+        """Acquires an access token for the Microsoft Graph API, leveraging the token cache"""
         try:
             # Attempt to get the token from the cache
             accounts = self.app.get_accounts()
@@ -93,7 +93,7 @@ class EmailClient:
             return None
 
     def _build_filter_query(self, email_filter: Optional[Dict]) -> str:
-        """Builds the $filter query parameter for Graph API."""
+        """Builds the $filter query parameter for Graph API"""
         filter_parts = []
         if email_filter:
             if "from_domain" in email_filter and email_filter["from_domain"]:
@@ -151,7 +151,7 @@ class EmailClient:
             return [], None
 
     def _create_forward_message_payload(self, original_message: Dict[str, Any]) -> Dict[str, Any]:
-        """Creates the payload for forwarding a message."""
+        """Creates the payload for forwarding a message"""
         return {
             "message": {
                 "subject": f"FW: {original_message['subject']}",

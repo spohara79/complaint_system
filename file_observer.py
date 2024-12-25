@@ -18,6 +18,7 @@ class FileObserver:
         self._thread = None
 
     def start(self):
+        """Starts the file observer"""
         if self._thread is None:
             self._thread = threading.Thread(target=self._observe)
             self._thread.start()
@@ -26,6 +27,7 @@ class FileObserver:
             logger.warning("File observer already started.")
 
     def stop(self):
+        """Stops the file observer"""
         if self._thread:
             self._stop_event.set()
             self._thread.join()
@@ -36,6 +38,7 @@ class FileObserver:
             logger.warning("File observer not running.")
 
     def _observe(self):
+        """Monitors the file for modifications"""
         last_modified = None
         while not self._stop_event.is_set():
             try:

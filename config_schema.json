@@ -12,19 +12,17 @@
         "type": "string"
       }
     },
-    "fallback": {
-      "type": "boolean",
-      "default": false
-    },
     "delete_original": {
       "type": "boolean",
       "default": true
     },
     "delta_token_path": {
-      "type": "string"
+      "type": "string",
+      "default": "delta_tokens.json"
     },
     "sentiment_threshold": {
-      "type": "number"
+      "type": "number",
+      "default": 0.7 
     },
     "distribution_list_email": {
       "type": "string"
@@ -71,28 +69,24 @@
       "type": "string",
       "default": "complaint_keywords.txt"
     },
-    "subject_keywords_file": {
-      "type": "string",
-      "default": "subject_keywords.txt"
-    },
-    "urgency_keywords_file": {
-      "type": "string",
-      "default": "urgency_keywords.txt"
-    },
     "log_level": {
-      "type": "string"
+      "type": "string",
+      "default": "INFO"
     },
     "scheduling_intervals": {
       "type": "object",
       "properties": {
         "fp_feedback_loop": {
-          "type": "string"
+          "type": "string",
+          "default": "5m"
         },
         "fn_feedback_loop": {
-          "type": "string"
+          "type": "string",
+          "default": "5m"
         },
         "main_loop": {
-          "type": "string"
+          "type": "string",
+          "default": "5m"
         }
       },
       "required": [
@@ -139,10 +133,12 @@
       "type": "object",
       "properties": {
         "use_contextual_check": {
-          "type": "boolean"
+          "type": "boolean",
+          "default": true
         },
         "contextual_score_threshold": {
-          "type": "number"
+          "type": "number",
+          "default": 0.4
         }
       },
       "required": [
@@ -153,27 +149,12 @@
   },
   "required": [
     "monitored_mailboxes",
-    "delta_token_path",
-    "sentiment_threshold",
     "distribution_list_email",
     "client_id",
     "tenant_id",
     "redirect_uri",
     "authority",
     "scopes",
-    "client_secret",
-    "exclusions",
-    "complaint_keywords_file",
-    "subject_keywords_file",
-    "urgency_keywords_file",
-    "log_level",
-    "scheduling_intervals",
-    "email_filter",
-    "max_retries",
-    "retry_delay",
-    "sentiment_pipeline_max_retries",
-    "sentiment_pipeline_retry_delay",
-    "top_emails",
-    "contextual_check"
+    "client_secret"
   ]
 }
