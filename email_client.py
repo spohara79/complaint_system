@@ -14,10 +14,21 @@ class EmailClient:
     def __init__(self, config: Config):
         self.config = config
         self.cache = SerializableTokenCache()  # Create a token cache
+        self.cert_path = config.cert_path
+        self.cert_data = None
+        self.private_key = None
+        self.private_key_path = config.private_key_path
+        self._load_keys()
+        
         self.app = ConfidentialClientApplication(
             config.client_id,
             authority=config.authority,
-            client_secret=config.client_secret,
+            #client_secret=config.client_secret,
+            client_credential = {
+                "private_key": self.private_key,
+                "thumbprint": self.config.cert_thumbprint,
+                "public_certificate": cert_data
+            },
             token_cache=self.cache  # Pass the cache to the app
         )
         self.distribution_list_email = self.config.distribution_list_email
@@ -27,6 +38,22 @@ class EmailClient:
         self._load_cache()
         self.token_cache = self.config.delta_token_file
 
+def _load_keys(self):
+        """Loads the cert and private key from file"""
+        try:
+            if os.path.exists(self.config.cert_path):
+                with open(self.config.cert_path, "r") as cert_file:
+                    self.cert_data = cert_file.read()
+        except Exception as e:
+            logger.error(f"Failed to load certificate: {e}")
+    
+        try:
+            if os.path.exists(self.config.private_key_path):
+                with open(self.config.private_key_path, "r") as key_file:
+                    self.private_key = key_file.read()
+        except Exception as e:
+            logger.error(f"Failed to load private key: {e}")
+    
     def _load_cache(self):
         """Loads the token cache from file"""
         try:
@@ -53,8 +80,6 @@ class EmailClient:
                     response = requests.get(url, headers=headers)
                 elif method == "POST":
                     response = requests.post(url, headers=headers, json=json_data)
-                elif method == "DELETE":
-                    response = requests.delete(url, headers=headers)
                 else:
                     raise ValueError(f"Invalid HTTP method: {method}")
                 response.raise_for_status() 
@@ -180,13 +205,6 @@ class EmailClient:
             self._make_graph_api_request(send_message_url, send_headers, method="POST", json_data=send_data)
 
             logger.info(f"Message {message_id} forwarded to distribution list.")
-            '''
-            if self.config.delete_original:
-                delete_url = f"https://graph.microsoft.com/v1.0/users/{user_id}/messages/{message_id}"
-                delete_headers = {"Authorization": f"Bearer {access_token}"}
-                self._make_graph_api_request(delete_url, delete_headers, method="DELETE")
-                logger.info(f"Original message {message_id} deleted.")
-            '''
 
         except requests.exceptions.RequestException as e:
             logger.error(f"Error forwarding message: {e}")
