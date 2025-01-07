@@ -24,5 +24,8 @@
         "Out of Office",
         "Delivery Status Notification"
       ]
-    }
+    },
+    "cert_path": "/path/to/cert.pem",
+    "private_key_path": "/path/to/private.key",
+    "cert_thumbprint": "CERT_THUMBPRINT"
   }
