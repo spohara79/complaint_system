@@ -26,7 +26,7 @@ config = Config("config.json", "config_schema.json")
 shared_resource_lock = threading.Lock()
 config_reload_event = threading.Event() # signal reload of config
 
-def check_for_feedback(mailbox_address: str, access_token_queue: queue.Queue, email_client: EmailClient, feedback_type: str,):
+def check_for_feedback(mailbox_address: str, access_token_queue: queue.Queue, email_client: EmailClient, feedback_type: str):
     processed_message_ids = set()
     interval_key = f"{feedback_type}_feedback_loop"
     while True:
@@ -108,7 +108,7 @@ def check_for_feedback(mailbox_address: str, access_token_queue: queue.Queue, em
         access_token_queue.put(email_client.get_access_token())
 
 
-def main_email_loop(mailbox_address: str, access_token_queue: queue.Queue, email_client: EmailClient, complaint_processor: ComplaintProcessor,):
+def main_email_loop(mailbox_address: str, access_token_queue: queue.Queue, email_client: EmailClient, complaint_processor: ComplaintProcessor):
     """Main loop to process emails for a specific mailbox"""
     while True:
         access_token = access_token_queue.get()
